@@ -1,0 +1,10 @@
+data/*.sqlite
+data/*.jsonl
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.streamlit/
+.venv/
+.agents/
+.agents/skills/developing-with-streamlit/

@@ -1,0 +1,34 @@
+{
+  "mistral.ai": {
+    "company_summary": "Mistral AI is a fast-growing AI company with international teams and enterprise customers, creating likely travel, policy, and finance coordination needs.",
+    "recent_signals": ["international expansion", "US expansion", "global offsites", "finance operations hiring"],
+    "likely_pains": ["travel policy and cross-border spend control", "event and group travel coordination", "expense, invoice, and spend visibility"],
+    "buyer_personas": ["CFO", "Head of Finance Operations", "Travel Manager", "Workplace Lead"],
+    "evidence": ["Hiring finance operations and workplace roles while expanding internationally across Europe and the United States; job posts mention global offsites and travel coordination."],
+    "confidence": 0.9
+  },
+  "deepl.com": {
+    "company_summary": "DeepL is a European AI software company with distributed operations, making travel policy, procurement, and finance workflow automation relevant.",
+    "recent_signals": ["procurement hiring", "finance transformation", "distributed offices", "cross-border operations"],
+    "likely_pains": ["expense, invoice, and spend visibility", "travel policy and cross-border spend control"],
+    "buyer_personas": ["CFO", "Finance Director", "Procurement Lead"],
+    "evidence": ["Recent hiring for procurement and finance transformation roles; distributed offices in Europe and the US create cross-border travel and expense policy complexity."],
+    "confidence": 0.88
+  },
+  "personio.com": {
+    "company_summary": "Personio is a scaled HR software company with multi-country operations and events, suggesting a strong travel and expense management use case.",
+    "recent_signals": ["multi-country operations", "company events", "finance systems improvement"],
+    "likely_pains": ["travel policy and cross-border spend control", "event and group travel coordination", "expense, invoice, and spend visibility"],
+    "buyer_personas": ["CFO", "Travel Manager", "People Operations Lead"],
+    "evidence": ["Scaling teams across several European offices; job descriptions mention business travel, company events, and finance systems improvement."],
+    "confidence": 0.86
+  },
+  "pleo.io": {
+    "company_summary": "Pleo is a spend-management company, which creates product-overlap risk but may still have travel and group-event coordination needs.",
+    "recent_signals": ["distributed teams", "possible product overlap", "events or travel adjacency"],
+    "likely_pains": ["travel policy and cross-border spend control", "event and group travel coordination"],
+    "buyer_personas": ["Travel Manager", "Workplace Lead", "Finance Operations"],
+    "evidence": ["Spend-management company with distributed teams; possible lower fit because they already solve expense workflows internally, but may still need travel and events management."],
+    "confidence": 0.67
+  }
+}

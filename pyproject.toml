@@ -1,0 +1,14 @@
+[project]
+name = "perk-signalops-agent"
+version = "0.1.0"
+description = "Production-shaped account research and qualification agent for a Perk-style revenue systems workflow."
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+ui = ["streamlit>=1.36"]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
