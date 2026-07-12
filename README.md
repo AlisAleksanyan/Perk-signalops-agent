@@ -90,11 +90,25 @@ python3 -m pip install "streamlit>=1.36"
 PYTHONPATH=src python3 -m streamlit run app.py
 ```
 
+## Magic Pen Discovery
+
+The Streamlit UI includes a Magic Pen action that attempts live discovery before falling back to the curated demo pool.
+
+Current live sources:
+
+- public job-post data from Arbeitnow
+- job-title and job-description signal extraction
+- simple company domain inference
+- company homepage/careers/jobs page scraping where reachable
+
+Magic Pen filters for Perk-relevant signals such as finance operations, procurement, workplace operations, travel, events, international teams, global expansion, and distributed operations. If live sources are unavailable or blocked, the UI still returns demo-safe accounts from the local discovery pool.
+
 ## What This Proves For The Perk Role
 
 - Multi-step agent pipeline, not a single prompt.
 - Python implementation with reusable step abstractions.
 - Replayable LLM outputs for deterministic testing.
+- Live job-post/company-page discovery path with graceful fallback.
 - Confidence threshold and human review queue.
 - Deterministic routing logic outside the LLM.
 - Structured logging for traceability.

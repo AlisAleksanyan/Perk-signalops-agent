@@ -5,6 +5,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from signalops.discovery import WebDiscovery
 from signalops.llm import ReplayLLMProvider
 from signalops.models import LeadInput
 from signalops.pipeline import AccountQualificationPipeline
@@ -343,8 +344,8 @@ def render_operator_actions(st: Any) -> None:
         """
         <div class="sidebar-magic">
           <span>Magic Pen</span>
-          <strong>Find 3 new hot accounts</strong>
-          <p>Suggests 3 companies not yet in the dashboard, analyzes them, then adds the results below.</p>
+          <strong>Research 3 new accounts</strong>
+          <p>Searches the web, job signals, and company pages, then analyzes new accounts below.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -376,7 +377,15 @@ def run_lead(lead: LeadInput):
 
 def next_magic_accounts(limit: int = 3) -> list[LeadInput]:
     existing = load_existing_domains()
-    return [lead for lead in HOT_ACCOUNTS if lead.domain.lower() not in existing][:limit]
+    discovered = WebDiscovery().discover(existing_domains=existing, limit=limit)
+    domains = existing | {lead.domain.lower() for lead in discovered}
+    if len(discovered) < limit:
+        discovered.extend(
+            lead
+            for lead in HOT_ACCOUNTS
+            if lead.domain.lower() not in domains
+        )
+    return discovered[:limit]
 
 
 def load_existing_domains() -> set[str]:
