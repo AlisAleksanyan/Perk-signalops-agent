@@ -2,15 +2,20 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import sys
 from pathlib import Path
 from typing import Any
+
+ROOT = Path(__file__).resolve().parent
+SRC_PATH = ROOT / "src"
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
 
 from signalops.discovery import WebDiscovery
 from signalops.llm import ReplayLLMProvider
 from signalops.models import LeadInput
 from signalops.pipeline import AccountQualificationPipeline
 
-ROOT = Path(__file__).resolve().parent
 DB_PATH = ROOT / "data" / "signalops_crm.sqlite"
 LOG_PATH = ROOT / "data" / "agent_runs.jsonl"
 REPLAY_PATH = ROOT / "data" / "replay_llm_responses.json"
