@@ -20,7 +20,7 @@ DB_PATH = ROOT / "data" / "signalops_crm.sqlite"
 LOG_PATH = ROOT / "data" / "agent_runs.jsonl"
 REPLAY_PATH = ROOT / "data" / "replay_llm_responses.json"
 MAGIC_PEN_TARGET_COUNT = 3
-MAGIC_PEN_CANDIDATE_COUNT = 15
+MAGIC_PEN_CANDIDATE_COUNT = 8
 MAGIC_PEN_MIN_SCORE = 60
 MAGIC_PEN_MIN_CONFIDENCE = 0.65
 
@@ -339,7 +339,7 @@ def render_operator_actions(st: Any) -> None:
         <div class="sidebar-magic">
           <span>Magic Pen</span>
           <strong>Research 3 new accounts</strong>
-          <p>Searches the web, job signals, and company pages, then analyzes new accounts below.</p>
+          <p>Instantly suggests high-fit accounts from the curated signal library.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -403,15 +403,8 @@ def is_magic_pen_qualified(run) -> bool:
 
 def next_magic_accounts(limit: int = 3) -> list[LeadInput]:
     existing = load_existing_domains()
-    discovered = WebDiscovery().discover(existing_domains=existing, limit=limit)
-    domains = existing | {lead.domain.lower() for lead in discovered}
-    if len(discovered) < limit:
-        discovered.extend(
-            lead
-            for lead in HOT_ACCOUNTS
-            if lead.domain.lower() not in domains
-        )
-    return discovered[:limit]
+    candidates = [lead for lead in HOT_ACCOUNTS if lead.domain.lower() not in existing]
+    return candidates[:limit]
 
 
 def load_existing_domains() -> set[str]:
