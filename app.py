@@ -20,6 +20,10 @@ from signalops.storage import make_account_store
 DB_PATH = ROOT / "data" / "signalops_crm.sqlite"
 LOG_PATH = ROOT / "data" / "agent_runs.jsonl"
 REPLAY_PATH = ROOT / "data" / "replay_llm_responses.json"
+MAGIC_PEN_TARGET_COUNT = 3
+MAGIC_PEN_CANDIDATE_COUNT = 15
+MAGIC_PEN_MIN_SCORE = 60
+MAGIC_PEN_MIN_CONFIDENCE = 0.65
 
 
 DECISION_LABELS = {
@@ -357,29 +361,57 @@ def render_operator_actions(st: Any) -> None:
         unsafe_allow_html=True,
     )
     if sidebar.button("Run Magic Pen", type="primary", width="stretch"):
-        leads = next_magic_accounts(limit=3)
+        leads = next_magic_accounts(limit=MAGIC_PEN_CANDIDATE_COUNT)
         if not leads:
             st.info("Magic Pen has no new companies left in its current discovery pool.")
             return
-        with st.spinner(f"Finding and qualifying {len(leads)} new hot accounts..."):
-            runs = [run_lead(lead) for lead in leads]
-        failed = [run for run in runs if run.errors]
-        if failed:
-            st.warning(f"Magic Pen finished with {len(failed)} account(s) needing troubleshooting.")
+        accepted = []
+        skipped = []
+        with st.spinner(f"Researching candidates and saving the best {MAGIC_PEN_TARGET_COUNT}..."):
+            for lead in leads:
+                run = run_lead(lead, writeback_filter=is_magic_pen_qualified)
+                if run.errors:
+                    skipped.append(lead.company_name)
+                    continue
+                if run.crm_record:
+                    accepted.append(lead.company_name)
+                else:
+                    skipped.append(lead.company_name)
+                if len(accepted) >= MAGIC_PEN_TARGET_COUNT:
+                    break
+        if accepted:
+            st.success(f"Magic Pen added: {', '.join(accepted)}.")
+            if skipped:
+                st.caption(f"Skipped weak-fit candidates: {', '.join(skipped[:6])}.")
         else:
-            names = ", ".join(lead.company_name for lead in leads)
-            st.success(f"Magic Pen added: {names}.")
+            st.info("Magic Pen researched candidates, but none passed the quality bar for the CRM.")
         st.rerun()
 
 
-def run_lead(lead: LeadInput):
+def run_lead(lead: LeadInput, writeback_filter=None):
     pipeline = AccountQualificationPipeline(
         llm=ReplayLLMProvider(REPLAY_PATH),
         db_path=DB_PATH,
         log_path=LOG_PATH,
         database_url=get_database_url(),
     )
-    return pipeline.run_one(lead)
+    return pipeline.run_one(lead, writeback_filter=writeback_filter)
+
+
+def is_magic_pen_qualified(run) -> bool:
+    if not run.score or not run.route:
+        return False
+    weak_text = " ".join(
+        [
+            run.score.primary_pain,
+            run.score.rationale,
+            *(run.research.recent_signals if run.research else []),
+            *(run.research.likely_pains if run.research else []),
+        ]
+    ).lower()
+    if "unclear fit" in weak_text or "weak or generic" in weak_text or "weak or conflicting" in weak_text:
+        return False
+    return run.score.score >= MAGIC_PEN_MIN_SCORE and run.score.confidence >= MAGIC_PEN_MIN_CONFIDENCE
 
 
 def next_magic_accounts(limit: int = 3) -> list[LeadInput]:

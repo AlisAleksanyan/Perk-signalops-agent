@@ -35,3 +35,26 @@ class PipelineTests(unittest.TestCase):
             self.assertIsNotNone(run.crm_record)
             self.assertEqual(run.crm_record.route_decision, "auto_qualify")
             self.assertTrue((tmp_path / "runs.jsonl").exists())
+
+    def test_pipeline_can_skip_crm_writeback_for_weak_magic_pen_candidate(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            pipeline = AccountQualificationPipeline(
+                llm=ReplayLLMProvider(Path("data/replay_llm_responses.json")),
+                db_path=tmp_path / "crm.sqlite",
+                log_path=tmp_path / "runs.jsonl",
+            )
+
+            run = pipeline.run_one(
+                LeadInput(
+                    company_name="Tiny Unknown",
+                    domain="tinyunknown.example",
+                    raw_signal="Hiring a general operations role.",
+                ),
+                writeback_filter=lambda candidate: candidate.score is not None and candidate.score.score >= 60,
+            )
+
+            self.assertFalse(run.errors)
+            self.assertIsNotNone(run.score)
+            self.assertLess(run.score.score, 60)
+            self.assertIsNone(run.crm_record)
