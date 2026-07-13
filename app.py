@@ -317,32 +317,17 @@ def render_operator_actions(st: Any) -> None:
     )
 
     with sidebar.expander("Analyze a company now", expanded=False):
-        st.caption("Paste a company and signal. The agent will research, score, route, and update the CRM view.")
+        st.caption("Type one company name. The agent will search, enrich, score, route, and update the CRM view.")
         with st.form("single_company_form", clear_on_submit=True):
-            company_name = st.text_input("Company Name", placeholder="Example: Factorial")
-            domain = st.text_input("Domain", placeholder="Example: factorialhr.com")
-            country = st.text_input("Country", placeholder="Example: Spain")
-            employee_count = st.number_input("Employee Count", min_value=0, max_value=250000, value=0, step=50)
-            raw_signal = st.text_area(
-                "Signal",
-                placeholder="Example: Hiring finance operations roles, opening US office, and planning global offsites.",
-                height=90,
-            )
+            company_name = st.text_input("Company Name", placeholder="Example: Legora")
             submitted = st.form_submit_button("Analyze Account", type="primary")
 
         if submitted:
             if not company_name.strip():
                 st.warning("Add a company name first.")
             else:
-                lead = LeadInput(
-                    company_name=company_name.strip(),
-                    domain=domain.strip() or infer_domain(company_name),
-                    country=country.strip(),
-                    employee_count=employee_count or None,
-                    source="manual_input",
-                    raw_signal=raw_signal.strip() or default_signal(company_name),
-                )
-                with st.spinner(f"Analyzing {lead.company_name}..."):
+                with st.spinner(f"Researching and analyzing {company_name.strip()}..."):
+                    lead = enrich_manual_company(company_name)
                     run = run_lead(lead)
                 if run.errors:
                     st.error(f"Could not analyze {lead.company_name}: {run.errors[0]}")
@@ -398,6 +383,10 @@ def run_lead(lead: LeadInput, writeback_filter=None):
     return pipeline.run_one(lead, writeback_filter=writeback_filter)
 
 
+def enrich_manual_company(company_name: str) -> LeadInput:
+    return WebDiscovery().enrich_company(company_name)
+
+
 def is_magic_pen_qualified(run) -> bool:
     if not run.score or not run.route:
         return False
@@ -429,18 +418,6 @@ def next_magic_accounts(limit: int = 3) -> list[LeadInput]:
 
 def load_existing_domains() -> set[str]:
     return get_account_store().list_domains()
-
-
-def infer_domain(company_name: str) -> str:
-    normalized = "".join(char.lower() for char in company_name if char.isalnum())
-    return f"{normalized}.example"
-
-
-def default_signal(company_name: str) -> str:
-    return (
-        f"{company_name.strip()} was manually submitted by Revenue Operations for qualification. "
-        "No external signal was provided, so the agent should be conservative and route uncertain cases to review."
-    )
 
 
 def render_metrics(st: Any, accounts: list[dict[str, Any]]) -> None:

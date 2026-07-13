@@ -70,6 +70,120 @@ BLOCKED_DOMAINS = {
     "indeed.com",
 }
 
+KNOWN_ACCOUNT_PROFILES = {
+    "factorial": LeadInput(
+        company_name="Factorial",
+        domain="factorialhr.com",
+        country="Spain",
+        employee_count=1700,
+        source="manual_web_enrichment",
+        raw_signal=(
+            "Barcelona-based AI business software company expanding internationally, including Germany. "
+            "Signals include HR, finance, and IT workflows, growth hiring, multiple offices, company events, "
+            "travel, expense, invoice, and spend-control needs."
+        ),
+    ),
+    "legora": LeadInput(
+        company_name="Legora",
+        domain="legora.com",
+        country="Sweden",
+        employee_count=650,
+        source="manual_web_enrichment",
+        raw_signal=(
+            "Fast-growing legal AI company with public rapid headcount growth and international enterprise demand. "
+            "Likely needs sales travel, events, approvals, cross-border spend control, and finance operations visibility."
+        ),
+    ),
+    "synthesia": LeadInput(
+        company_name="Synthesia",
+        domain="synthesia.io",
+        country="United Kingdom",
+        employee_count=550,
+        source="manual_web_enrichment",
+        raw_signal=(
+            "AI video platform serving enterprise customers and expanding globally across North America, Europe, Japan, "
+            "and Australia. Signals include enterprise sales travel, customer events, distributed teams, and expense workflows."
+        ),
+    ),
+    "pigment": LeadInput(
+        company_name="Pigment",
+        domain="pigment.com",
+        country="France",
+        employee_count=900,
+        source="manual_web_enrichment",
+        raw_signal=(
+            "Business planning SaaS company with finance buyer overlap, international enterprise growth, customer events, "
+            "sales travel, expense, invoice, and spend visibility needs."
+        ),
+    ),
+    "mistral ai": LeadInput(
+        company_name="Mistral AI",
+        domain="mistral.ai",
+        country="France",
+        employee_count=1000,
+        source="manual_web_enrichment",
+        raw_signal=(
+            "European AI company expanding internationally with US sales presence. Signals include growth hiring, "
+            "cross-border executive travel, customer events, and spend-management complexity."
+        ),
+    ),
+    "helsing": LeadInput(
+        company_name="Helsing",
+        domain="helsing.ai",
+        country="Germany",
+        employee_count=900,
+        source="manual_web_enrichment",
+        raw_signal=(
+            "Defense AI company operating across Europe with subsidiaries, manufacturing partnerships, procurement needs, "
+            "policy-heavy travel, finance operations, and controlled spend workflows."
+        ),
+    ),
+    "miro": LeadInput(
+        company_name="Miro",
+        domain="miro.com",
+        country="Netherlands",
+        employee_count=1800,
+        source="manual_web_enrichment",
+        raw_signal=(
+            "Global collaboration software company with distributed teams, enterprise sales travel, customer events, "
+            "offsites, and expense-management needs across offices."
+        ),
+    ),
+    "qonto": LeadInput(
+        company_name="Qonto",
+        domain="qonto.com",
+        country="France",
+        employee_count=1600,
+        source="manual_web_enrichment",
+        raw_signal=(
+            "European business finance platform operating across multiple countries. Signals include finance operations, "
+            "international expansion, procurement, travel policy, and multi-country spend controls."
+        ),
+    ),
+    "contentful": LeadInput(
+        company_name="Contentful",
+        domain="contentful.com",
+        country="Germany",
+        employee_count=750,
+        source="manual_web_enrichment",
+        raw_signal=(
+            "B2B SaaS company with offices across the US, Europe, and Australia. Signals include enterprise sales travel, "
+            "customer success travel, distributed teams, events, expenses, and spend-policy complexity."
+        ),
+    ),
+    "alan": LeadInput(
+        company_name="Alan",
+        domain="alan.com",
+        country="France",
+        employee_count=650,
+        source="manual_web_enrichment",
+        raw_signal=(
+            "Health insurance scaleup active across multiple countries. Signals include regulated multi-country operations, "
+            "growth hiring, finance operations, travel, events, and spend visibility needs."
+        ),
+    ),
+}
+
 
 @dataclass
 class SearchResult:
@@ -101,6 +215,53 @@ class WebDiscovery:
                 if len(candidates) >= limit:
                     return list(candidates.values())
         return list(candidates.values())
+
+    def enrich_company(self, company_name: str) -> LeadInput:
+        company = clean_text(company_name)
+        known = KNOWN_ACCOUNT_PROFILES.get(normalize_company_key(company))
+        if known:
+            return known
+
+        results: list[SearchResult] = []
+        for query in (
+            f'"{company}" official website company',
+            f'"{company}" careers jobs finance operations international expansion',
+        ):
+            results.extend(self.search(query))
+
+        best_result = next(
+            (
+                result
+                for result in results
+                if normalize_domain(result.url) and not is_blocked_domain(normalize_domain(result.url))
+            ),
+            None,
+        )
+        domain = normalize_domain(best_result.url) if best_result else infer_domain_from_company(company)
+        website_text = self.fetch_company_text(domain) if domain else ""
+        evidence = " ".join(
+            part
+            for part in [
+                *(f"{result.title}. {result.snippet}" for result in results[:4]),
+                website_text,
+            ]
+            if part
+        )
+        signal = build_signal(evidence) if evidence else ""
+        if not signal:
+            signal = (
+                f"{company} was submitted for autonomous qualification. Web enrichment found limited public "
+                "signal, so the agent should be conservative and route uncertain cases to review."
+            )
+
+        return LeadInput(
+            company_name=company,
+            domain=domain,
+            country=infer_country(evidence),
+            employee_count=infer_employee_count(evidence),
+            source="manual_web_enrichment",
+            raw_signal=signal,
+        )
 
     def discover_from_jobs(self, *, existing_domains: set[str], limit: int = 3) -> list[LeadInput]:
         url = "https://www.arbeitnow.com/api/job-board-api"
@@ -268,6 +429,13 @@ def normalize_company_name(company: str) -> str:
     company = re.sub(r"\s+-\s+(english|deutsch|german|remote)$", "", company, flags=re.IGNORECASE)
     company = re.sub(r"\s+\([^)]*\)$", "", company)
     return company.strip()
+
+
+def normalize_company_key(company: str) -> str:
+    normalized = company.lower().replace("&", "and")
+    normalized = re.sub(r"\b(gmbh|ltd|limited|inc|corp|corporation|s\.?a\.?|ag|bv|plc)\b", "", normalized)
+    normalized = re.sub(r"[^a-z0-9]+", " ", normalized)
+    return normalized.strip()
 
 
 def infer_domain_from_company(company: str) -> str:
