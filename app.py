@@ -464,6 +464,8 @@ def render_account_card(st: Any, row: dict[str, Any]) -> None:
     segment = SEGMENT_LABELS.get(row["segment"], sentence_case(row["segment"]))
     region = row["region"].upper()
     review_note = row["human_review_reason"] or "No review needed."
+    score_tooltip = "Fit score = headcount + international/distributed signal + spend pain + events + growth, minus data gaps."
+    confidence_tooltip = "Confidence reflects research evidence strength, then is capped when core firmographic data is missing."
 
     st.markdown(
         f"""
@@ -478,11 +480,11 @@ def render_account_card(st: Any, row: dict[str, Any]) -> None:
           </div>
           <div class="score-row">
             <div>
-              <span>Perk Fit Score</span>
+              <span>Perk Fit Score <b class="info-dot" title="{score_tooltip}">?</b></span>
               <strong>{score}</strong>
             </div>
             <div>
-              <span>Confidence</span>
+              <span>Confidence <b class="info-dot" title="{confidence_tooltip}">?</b></span>
               <strong>{confidence}%</strong>
             </div>
             <div>
@@ -505,6 +507,11 @@ def render_account_card(st: Any, row: dict[str, Any]) -> None:
             <summary>Why this decision?</summary>
             <p>{row["research_summary"]}</p>
             <p><strong>Review note:</strong> {review_note}</p>
+          </details>
+          <details>
+            <summary>How were score and confidence calculated?</summary>
+            <p><strong>Perk Fit Score:</strong> {score_explanation(row)}</p>
+            <p><strong>Confidence:</strong> {confidence_explanation(row)}</p>
           </details>
         </article>
         """,
@@ -640,6 +647,25 @@ def activity_message(step: str, event_type: str, payload: dict[str, Any]) -> str
     if step == "pipeline":
         return "Account run completed."
     return "Step completed."
+
+
+def score_explanation(row: dict[str, Any]) -> str:
+    return (
+        "The model adds points for target headcount, international or distributed-team signals, "
+        "travel/spend/invoice pain, events or offsites, and growth or hiring momentum. "
+        "It subtracts points when core data is missing, then caps the result from 0 to 100. "
+        f"This account landed at {row['perk_fit_score']}/100."
+    )
+
+
+def confidence_explanation(row: dict[str, Any]) -> str:
+    confidence = int(round(row["confidence"] * 100))
+    return (
+        "Confidence starts from the strength of the research evidence: multiple clear signal groups score higher, "
+        "generic evidence scores lower, and weak or conflicting evidence is routed toward review. "
+        "The final confidence is capped lower when domain, country, or headcount data is missing. "
+        f"This account's final confidence is {confidence}%."
+    )
 
 
 def sentence_case(value: str) -> str:
@@ -804,6 +830,22 @@ def inject_css(st: Any) -> None:
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0;
+        }
+
+        .info-dot {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 16px;
+          height: 16px;
+          margin-left: 4px;
+          border-radius: 50%;
+          background: #e8f2ec;
+          color: var(--green);
+          font-size: 11px;
+          font-weight: 900;
+          text-transform: none;
+          cursor: help;
         }
 
         .metric-card strong {

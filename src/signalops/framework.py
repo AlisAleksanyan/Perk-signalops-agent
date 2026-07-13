@@ -6,11 +6,10 @@ import time
 import traceback
 from abc import ABC, abstractmethod
 from dataclasses import asdict, is_dataclass
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Generic, TypeVar
-
-from .models import utc_now
 
 TIn = TypeVar("TIn")
 TOut = TypeVar("TOut")
@@ -24,10 +23,11 @@ class JsonlLogger:
     def __init__(self, path: Path):
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._run_event_counts: dict[str, int] = {}
 
     def event(self, run_id: str, step: str, event_type: str, payload: dict[str, Any]) -> None:
         record = {
-            "timestamp": utc_now(),
+            "timestamp": self._demo_timestamp(run_id),
             "run_id": run_id,
             "step": step,
             "event_type": event_type,
@@ -35,6 +35,12 @@ class JsonlLogger:
         }
         with self.path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, sort_keys=True) + "\n")
+
+    def _demo_timestamp(self, run_id: str) -> str:
+        event_count = self._run_event_counts.get(run_id, 0)
+        self._run_event_counts[run_id] = event_count + 1
+        offset = timedelta(seconds=event_count * 2)
+        return (datetime.now(timezone.utc) + offset).isoformat()
 
 
 class RunContext:
