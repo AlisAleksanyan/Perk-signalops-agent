@@ -16,13 +16,13 @@ from .steps.writeback import CRMWriter
 
 
 class AccountQualificationPipeline:
-    def __init__(self, *, llm: LLMProvider, db_path: Path, log_path: Path, database_url: str | None = None):
+    def __init__(self, *, llm: LLMProvider, db_path: Path, log_path: Path):
         self.logger = JsonlLogger(log_path)
         self.enrichment = EnrichmentStep()
         self.research = ResearchStep(llm)
         self.scoring = ScoringStep()
         self.routing = RoutingStep()
-        self.writeback = CRMWriter(db_path, database_url)
+        self.writeback = CRMWriter(db_path)
 
     def run_one(self, lead: LeadInput, writeback_filter: Callable[[AgentRun], bool] | None = None) -> AgentRun:
         run = AgentRun(run_id=str(uuid.uuid4()), lead=lead)

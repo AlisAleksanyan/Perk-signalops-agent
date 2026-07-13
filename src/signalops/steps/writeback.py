@@ -11,8 +11,8 @@ from signalops.storage import AccountStore, make_account_store
 class CRMWriter(AgentStep[tuple[EnrichedAccount, ResearchBrief, FitScore, RouteResult], CRMRecord]):
     name = "crm_writeback"
 
-    def __init__(self, db_path: Path, database_url: str | None = None):
-        self.store: AccountStore = make_account_store(db_path, database_url)
+    def __init__(self, db_path: Path):
+        self.store: AccountStore = make_account_store(db_path)
 
     def run(self, value: tuple[EnrichedAccount, ResearchBrief, FitScore, RouteResult], context: RunContext) -> CRMRecord:
         account, research, score, route = value

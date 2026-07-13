@@ -36,7 +36,8 @@ Manual account research does not scale well across outbound, enrichment, Salesfo
    - Low fit with sufficient confidence: `reject`.
 
 6. **CRM Writeback**
-   - Writes structured records into Postgres when `DATABASE_URL` is configured, or local SQLite as a Salesforce-style stand-in.
+   - Writes structured records into a lightweight local SQLite table as a Salesforce-style stand-in.
+   - The starter account list lives in git in `src/signalops/seed_data.py`, which is enough for this MVP-sized demo.
    - Fields include fit score, confidence, region, segment, sales motion, owner queue, next action, and review reason.
 
 7. **Observability**
@@ -103,31 +104,13 @@ Current live sources:
 
 Magic Pen filters for Perk-relevant signals such as finance operations, procurement, workplace operations, travel, events, international teams, global expansion, and distributed operations. If live sources are unavailable or blocked, the UI still returns demo-safe accounts from the local discovery pool.
 
-## Persistent Database
+## MVP Data Store
 
-The app uses SQLite locally by default, so it runs without setup on your laptop. For Streamlit Cloud, connect an open-source Postgres database by adding a `DATABASE_URL` secret.
+For this demo, the source-of-truth account list is intentionally small and git-tracked in `src/signalops/seed_data.py`. On startup, the app seeds the local SQLite CRM table from that list when the table is empty.
 
-Good hosted Postgres options:
+This is simpler than provisioning Postgres for an MVP with 40-50 curated rows. It also makes the demo easy to inspect in GitHub and easy to explain in an interview.
 
-- Supabase
-- Neon
-- Railway
-
-In Streamlit Cloud, open the app settings, go to **Secrets**, and add:
-
-```toml
-DATABASE_URL = "postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
-```
-
-After restart, accounts, review decisions, and deletes will persist in Postgres instead of the temporary Streamlit filesystem.
-
-To seed the manually researched top-10 account list into Postgres:
-
-```bash
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE" PYTHONPATH=src python3 seed_top_accounts.py
-```
-
-For a local SQLite-only test:
+To refresh the local SQLite table from the seed list:
 
 ```bash
 PYTHONPATH=src python3 seed_top_accounts.py --local-sqlite

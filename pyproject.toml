@@ -3,7 +3,7 @@ name = "perk-signalops-agent"
 version = "0.1.0"
 description = "Production-shaped account research and qualification agent for a Perk-style revenue systems workflow."
 requires-python = ">=3.10"
-dependencies = ["streamlit>=1.36", "psycopg[binary]>=3.2"]
+dependencies = ["streamlit>=1.36"]
 
 [tool.poetry]
 package-mode = false

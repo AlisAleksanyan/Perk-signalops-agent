@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -378,7 +377,6 @@ def run_lead(lead: LeadInput, writeback_filter=None):
         llm=ReplayLLMProvider(REPLAY_PATH),
         db_path=DB_PATH,
         log_path=LOG_PATH,
-        database_url=get_database_url(),
     )
     return pipeline.run_one(lead, writeback_filter=writeback_filter)
 
@@ -597,19 +595,7 @@ def delete_account(account_id: str) -> None:
 
 
 def get_account_store():
-    return make_account_store(DB_PATH, get_database_url())
-
-
-def get_database_url() -> str | None:
-    database_url = os.environ.get("DATABASE_URL")
-    if database_url:
-        return database_url
-    try:
-        import streamlit as st
-
-        return st.secrets.get("DATABASE_URL")
-    except Exception:
-        return None
+    return make_account_store(DB_PATH)
 
 
 def load_logs() -> list[dict[str, Any]]:
