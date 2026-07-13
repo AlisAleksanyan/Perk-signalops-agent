@@ -36,7 +36,7 @@ Manual account research does not scale well across outbound, enrichment, Salesfo
    - Low fit with sufficient confidence: `reject`.
 
 6. **CRM Writeback**
-   - Writes structured records into SQLite as a Salesforce-style stand-in.
+   - Writes structured records into Postgres when `DATABASE_URL` is configured, or local SQLite as a Salesforce-style stand-in.
    - Fields include fit score, confidence, region, segment, sales motion, owner queue, next action, and review reason.
 
 7. **Observability**
@@ -61,7 +61,7 @@ ScoringStep
 RoutingStep
       |
       v
-SQLiteCRMWriter
+CRMWriter
       |
       v
 Streamlit dashboard + JSONL trace logs
@@ -102,6 +102,24 @@ Current live sources:
 - company homepage/careers/jobs page scraping where reachable
 
 Magic Pen filters for Perk-relevant signals such as finance operations, procurement, workplace operations, travel, events, international teams, global expansion, and distributed operations. If live sources are unavailable or blocked, the UI still returns demo-safe accounts from the local discovery pool.
+
+## Persistent Database
+
+The app uses SQLite locally by default, so it runs without setup on your laptop. For Streamlit Cloud, connect an open-source Postgres database by adding a `DATABASE_URL` secret.
+
+Good hosted Postgres options:
+
+- Supabase
+- Neon
+- Railway
+
+In Streamlit Cloud, open the app settings, go to **Secrets**, and add:
+
+```toml
+DATABASE_URL = "postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
+```
+
+After restart, accounts, review decisions, and deletes will persist in Postgres instead of the temporary Streamlit filesystem.
 
 ## What This Proves For The Perk Role
 

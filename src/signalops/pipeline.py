@@ -11,17 +11,17 @@ from .steps.enrichment import EnrichmentStep
 from .steps.research import ResearchStep
 from .steps.routing import RoutingStep
 from .steps.scoring import ScoringStep
-from .steps.writeback import SQLiteCRMWriter
+from .steps.writeback import CRMWriter
 
 
 class AccountQualificationPipeline:
-    def __init__(self, *, llm: LLMProvider, db_path: Path, log_path: Path):
+    def __init__(self, *, llm: LLMProvider, db_path: Path, log_path: Path, database_url: str | None = None):
         self.logger = JsonlLogger(log_path)
         self.enrichment = EnrichmentStep()
         self.research = ResearchStep(llm)
         self.scoring = ScoringStep()
         self.routing = RoutingStep()
-        self.writeback = SQLiteCRMWriter(db_path)
+        self.writeback = CRMWriter(db_path, database_url)
 
     def run_one(self, lead: LeadInput) -> AgentRun:
         run = AgentRun(run_id=str(uuid.uuid4()), lead=lead)

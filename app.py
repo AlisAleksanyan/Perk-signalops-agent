@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import sqlite3
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -15,6 +15,7 @@ from signalops.discovery import WebDiscovery
 from signalops.llm import ReplayLLMProvider
 from signalops.models import LeadInput
 from signalops.pipeline import AccountQualificationPipeline
+from signalops.storage import make_account_store
 
 DB_PATH = ROOT / "data" / "signalops_crm.sqlite"
 LOG_PATH = ROOT / "data" / "agent_runs.jsonl"
@@ -376,6 +377,7 @@ def run_lead(lead: LeadInput):
         llm=ReplayLLMProvider(REPLAY_PATH),
         db_path=DB_PATH,
         log_path=LOG_PATH,
+        database_url=get_database_url(),
     )
     return pipeline.run_one(lead)
 
@@ -394,11 +396,7 @@ def next_magic_accounts(limit: int = 3) -> list[LeadInput]:
 
 
 def load_existing_domains() -> set[str]:
-    if not DB_PATH.exists():
-        return set()
-    with sqlite3.connect(DB_PATH) as conn:
-        rows = conn.execute("select lower(domain) from accounts").fetchall()
-    return {row[0] for row in rows}
+    return get_account_store().list_domains()
 
 
 def infer_domain(company_name: str) -> str:
@@ -578,40 +576,31 @@ def render_activity_item(st: Any, event: dict[str, str]) -> None:
 
 
 def load_accounts() -> list[dict[str, Any]]:
-    if not DB_PATH.exists():
-        return []
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute(
-            """
-            select account_id, company_name, domain, perk_fit_score, confidence, primary_pain,
-                   route_decision, segment, region, sales_motion, owner_queue,
-                   next_best_action, human_review_reason, research_summary, updated_at
-            from accounts
-            order by updated_at desc
-            """
-        ).fetchall()
-    return [dict(row) for row in rows]
+    return get_account_store().list_accounts()
 
 
 def update_review_decision(account_id: str, *, decision: str, reason: str, next_action: str) -> None:
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute(
-            """
-            update accounts
-            set route_decision = ?,
-                human_review_reason = ?,
-                next_best_action = ?,
-                updated_at = datetime('now')
-            where account_id = ?
-            """,
-            (decision, reason, next_action, account_id),
-        )
+    get_account_store().update_review_decision(account_id, decision=decision, reason=reason, next_action=next_action)
 
 
 def delete_account(account_id: str) -> None:
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("delete from accounts where account_id = ?", (account_id,))
+    get_account_store().delete_account(account_id)
+
+
+def get_account_store():
+    return make_account_store(DB_PATH, get_database_url())
+
+
+def get_database_url() -> str | None:
+    database_url = os.environ.get("DATABASE_URL")
+    if database_url:
+        return database_url
+    try:
+        import streamlit as st
+
+        return st.secrets.get("DATABASE_URL")
+    except Exception:
+        return None
 
 
 def load_logs() -> list[dict[str, Any]]:
