@@ -121,6 +121,18 @@ DATABASE_URL = "postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
 
 After restart, accounts, review decisions, and deletes will persist in Postgres instead of the temporary Streamlit filesystem.
 
+To seed the manually researched top-10 account list into Postgres:
+
+```bash
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE" PYTHONPATH=src python3 seed_top_accounts.py
+```
+
+For a local SQLite-only test:
+
+```bash
+PYTHONPATH=src python3 seed_top_accounts.py --local-sqlite
+```
+
 ## What This Proves For The Perk Role
 
 - Multi-step agent pipeline, not a single prompt.
