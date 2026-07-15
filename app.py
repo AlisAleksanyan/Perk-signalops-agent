@@ -288,8 +288,8 @@ def main() -> None:
         else:
             st.markdown('<div class="empty-state">No accounts currently need review.</div>', unsafe_allow_html=True)
 
-        st.markdown('<h2 class="section-title top-space">Activity</h2>', unsafe_allow_html=True)
-        for event in simplify_logs(logs)[-10:][::-1]:
+        st.markdown('<h2 class="section-title top-space">Recent Agent Activity</h2>', unsafe_allow_html=True)
+        for event in simplify_logs(logs, accounts)[-10:][::-1]:
             render_activity_item(st, event)
 
 
@@ -611,7 +611,13 @@ def load_logs() -> list[dict[str, Any]]:
     return events
 
 
-def simplify_logs(logs: list[dict[str, Any]]) -> list[dict[str, str]]:
+def simplify_logs(logs: list[dict[str, Any]], accounts: list[dict[str, Any]] | None = None) -> list[dict[str, str]]:
+    run_names = collect_run_names(logs)
+    current_scores = {
+        str(account["company_name"]).lower(): int(account["perk_fit_score"])
+        for account in accounts or []
+        if account.get("company_name") and account.get("perk_fit_score") is not None
+    }
     simplified = []
     for event in logs:
         event_type = event.get("event_type", "")
@@ -619,34 +625,95 @@ def simplify_logs(logs: list[dict[str, Any]]) -> list[dict[str, str]]:
             continue
         step = event.get("step", "")
         payload = event.get("payload", {})
+        company_name = event_company_name(event, run_names)
+        if is_stale_score_event(step, payload, company_name, current_scores):
+            continue
         simplified.append(
             {
                 "time": event.get("timestamp", "")[11:19],
                 "step": STEP_LABELS.get(step, sentence_case(step)),
-                "message": activity_message(step, event_type, payload),
+                "message": activity_message(step, event_type, payload, company_name),
             }
         )
     return simplified
 
 
-def activity_message(step: str, event_type: str, payload: dict[str, Any]) -> str:
+def is_stale_score_event(
+    step: str,
+    payload: dict[str, Any],
+    company_name: str,
+    current_scores: dict[str, int],
+) -> bool:
+    if not company_name or not current_scores:
+        return False
+    if step not in {"scoring", "crm_writeback"}:
+        return False
+    current_score = current_scores.get(company_name.lower())
+    if current_score is None:
+        return False
+    output = payload.get("output") or {}
+    if not isinstance(output, dict):
+        return False
+    logged_score = output.get("score") if step == "scoring" else output.get("perk_fit_score")
+    if logged_score is None:
+        return False
+    return int(logged_score) != current_score
+
+
+def collect_run_names(logs: list[dict[str, Any]]) -> dict[str, str]:
+    names: dict[str, str] = {}
+    for event in logs:
+        run_id = event.get("run_id")
+        if not run_id:
+            continue
+        name = event_company_name(event, {})
+        if name:
+            names[run_id] = name
+    return names
+
+
+def event_company_name(event: dict[str, Any], run_names: dict[str, str]) -> str:
+    run_id = event.get("run_id", "")
+    payload = event.get("payload", {})
+    candidates = [
+        payload.get("lead") if isinstance(payload, dict) else None,
+        payload.get("input") if isinstance(payload, dict) else None,
+        payload.get("output") if isinstance(payload, dict) else None,
+        payload.get("run", {}).get("lead") if isinstance(payload.get("run"), dict) else None,
+        payload.get("run", {}).get("crm_record") if isinstance(payload.get("run"), dict) else None,
+    ]
+    for candidate in candidates:
+        if isinstance(candidate, dict) and candidate.get("company_name"):
+            return str(candidate["company_name"])
+        if isinstance(candidate, list):
+            for item in candidate:
+                if isinstance(item, dict) and item.get("company_name"):
+                    return str(item["company_name"])
+    return run_names.get(run_id, "")
+
+
+def activity_message(step: str, event_type: str, payload: dict[str, Any], company_name: str = "") -> str:
+    prefix = f"{company_name}: " if company_name else ""
     if event_type == "failed":
-        return "A step failed and was captured for troubleshooting."
+        return f"{prefix}a step failed and was captured for troubleshooting."
     output = payload.get("output") or {}
     if step == "routing" and isinstance(output, dict):
         decision = DECISION_LABELS.get(output.get("decision", ""), "Decision recorded")
-        return f"{decision} route selected."
+        return f"{prefix}{decision} route selected."
     if step == "scoring" and isinstance(output, dict):
-        return f"Fit score calculated: {output.get('score', 'N/A')}."
+        return f"{prefix}fit score calculated: {output.get('score', 'N/A')}."
     if step == "crm_writeback":
-        return "CRM record updated."
+        score = output.get("perk_fit_score") if isinstance(output, dict) else None
+        if score is not None:
+            return f"{prefix}CRM record updated with score {score}."
+        return f"{prefix}CRM record updated."
     if step == "research":
-        return "Research brief generated."
+        return f"{prefix}research brief generated."
     if step == "enrichment":
-        return "Account details enriched."
+        return f"{prefix}account details enriched."
     if step == "pipeline":
-        return "Account run completed."
-    return "Step completed."
+        return f"{prefix}account run completed."
+    return f"{prefix}step completed."
 
 
 def score_explanation(row: dict[str, Any]) -> str:
